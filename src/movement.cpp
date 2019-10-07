@@ -40,22 +40,20 @@ using namespace std;
  * CHANGE_LANE_Q: angle reference increment or decrement for lane changing.
  * FREC: maximum rate for main loop execution.
  */
-float LATERAL_BOUNDARY_MIN = 0.1;
-float LATERAL_BOUNDARY_MAX = 0.5;
-float SECURE_DISTANCE = 1.0;
-float LATERAL_LOOKAHEAD = 2.0;
-float BACK_DISTANCE = 0.3;
-float EXTRA_LOOKAHEAD = 0.5;
+double LATERAL_BOUNDARY_MIN = 0.1;
+double LATERAL_BOUNDARY_MAX = 0.5;
+double SECURE_DISTANCE = 1.0;
+double LATERAL_LOOKAHEAD = 2.0;
+double BACK_DISTANCE = 0.3;
+double EXTRA_LOOKAHEAD = 0.5;
 
-float GOAL_RECOMPUTE_DISTANCE = 0.6;
-float ORIENTATION_ERROR = 5*(M_PI/180.0);
+double GOAL_RECOMPUTE_DISTANCE = 0.6;
+double ORIENTATION_ERROR = 5*(M_PI/180.0);
 
-float CONTROL_GAIN_P = 150.0;
-float CONTROL_GAIN_I = 0.0; 
-float CONTROL_GAIN_D = 0.0;
+double CONTROL_GAIN_P = 150.0;
 
-float NORMAL_SPEED = 250;
-float CHANGE_LANE_Q = 35*(M_PI/180.0);
+int NORMAL_SPEED = 250;
+double CHANGE_LANE_Q = 35*(M_PI/180.0);
 
 const unsigned int FREC = 10;
 
@@ -92,8 +90,6 @@ struct carState_t{
   float q_r;
   
   float p_s;
-  float d_s;
-  float i_s;
   
   bool goal_set;
   bool got_pose;
@@ -149,7 +145,7 @@ int main(int argc, char **argv)
   * ros::Rate limits the execution speed of this node
   * ros::Subscriber creates an object that allows subscription to the "obstacle_data", "odom" and "yaw" topics
   */
-  ros::init(argc,argv,"avoid");
+  ros::init(argc,argv,"movement");
   ros::NodeHandle n;
   ros::Subscriber obst_sub = n.subscribe("obstacle_data",1000, cb_processObstacleData);
   ros::Subscriber pos_sub = n.subscribe("odom",1000, cb_getOdometryData);
@@ -371,14 +367,12 @@ void computeControlCmd()
     car_state.changing_lane = false;
   }
   
-  car_state.d_s = CONTROL_GAIN_D *(err - (car_state.p_s/CONTROL_GAIN_P));
-  car_state.i_s = CONTROL_GAIN_I *(car_state.i_s + err);
   car_state.p_s = CONTROL_GAIN_P * err;
   
-  double w_unsaturated = car_state.p_s + car_state.d_s + car_state.i_s;
+  double w_unsaturated = car_state.p_s;
   int w_converted = (int)w_unsaturated + 90;
   car_state.w.data = (uint)(min(max(0,w_converted),255));
-  ROS_INFO("[DEBUG]avoid/computeControlCmd -> Q=%.3f, Q_R=%.3f, D=%.3f E=%f, PID=[%.2f,%.2f,%.2f]",car_state.q, car_state.q_r, distance, err, car_state.p_s, car_state.i_s, car_state.d_s);
+  ROS_INFO("[DEBUG]avoid/computeControlCmd -> Q=%.3f, Q_R=%.3f, D=%.3f E=%f, PID=[%.2f,%.2f,%.2f]",car_state.q, car_state.q_r, distance, err, car_state.p_s);
   
   //Packing data for extraction
   mov_data.data.clear();
