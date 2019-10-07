@@ -40,22 +40,22 @@ using namespace std;
  * CHANGE_LANE_Q: angle reference increment or decrement for lane changing.
  * FREC: maximum rate for main loop execution.
  */
-const float LATERAL_BOUNDARY_MIN = 0.1;
-const float LATERAL_BOUNDARY_MAX = 0.5;
-const float SECURE_DISTANCE = 1.0;
-const float LATERAL_LOOKAHEAD = 2.0;
-const float BACK_DISTANCE = 0.3;
-const float EXTRA_LOOKAHEAD = 0.5;
+float LATERAL_BOUNDARY_MIN = 0.1;
+float LATERAL_BOUNDARY_MAX = 0.5;
+float SECURE_DISTANCE = 1.0;
+float LATERAL_LOOKAHEAD = 2.0;
+float BACK_DISTANCE = 0.3;
+float EXTRA_LOOKAHEAD = 0.5;
 
-const float GOAL_RECOMPUTE_DISTANCE = 0.6;
-const float ORIENTATION_ERROR = 5*(M_PI/180.0);
+float GOAL_RECOMPUTE_DISTANCE = 0.6;
+float ORIENTATION_ERROR = 5*(M_PI/180.0);
 
 float CONTROL_GAIN_P = 150.0;
 float CONTROL_GAIN_I = 0.0; 
 float CONTROL_GAIN_D = 0.0;
 
-const int NORMAL_SPEED = 250;
-const float CHANGE_LANE_Q = 35*(M_PI/180.0);
+float NORMAL_SPEED = 250;
+float CHANGE_LANE_Q = 35*(M_PI/180.0);
 
 const unsigned int FREC = 10;
 
@@ -84,7 +84,8 @@ struct carState_t{
   float x; 
   float y;
   float q;
-    
+  float vel;
+  
   float c_x;
   float c_y;
   
@@ -100,6 +101,7 @@ struct carState_t{
   
   bool inLeftLane;
   bool changing_lane;
+  
   
   std_msgs::Int16 v;
   std_msgs::UInt8 w;
@@ -125,6 +127,7 @@ void cb_processObstacleData(const detect_avoid::ObstacleList::ConstPtr& obst_lis
 void cb_getOdometryData(const nav_msgs::Odometry::ConstPtr& pose);
 void cb_getYawData(const std_msgs::Float32::ConstPtr& yaw);
 
+bool getClassificationParams(ros::NodeHandle node);
 void computeControlCmd();
 void generateGoal();
 
@@ -174,7 +177,7 @@ int main(int argc, char **argv)
   while (ros::ok())
   {
     ros::spinOnce();
-    if(car_state.got_pose)
+    if(car_state.got_pose && getClassificationParams(n))
     {
       if(!car_state.got_road_q)
       {
@@ -221,6 +224,7 @@ void cb_getOdometryData(const nav_msgs::Odometry::ConstPtr& pose)
    */
   car_state.x=pose->pose.pose.position.x;
   car_state.y=pose->pose.pose.position.y;
+  car_state.vel=pose->twist.twist.linear.x;
 }
 
 void cb_getYawData(const std_msgs::Float32::ConstPtr& yaw)
@@ -231,6 +235,20 @@ void cb_getYawData(const std_msgs::Float32::ConstPtr& yaw)
    */
   car_state.got_pose = true;
   car_state.q = yaw->data;
+}
+
+bool getClassificationParams(ros::NodeHandle node)
+{  
+  bool lbm = node.getParam("LBMin", LATERAL_BOUNDARY_MIN);
+  bool lbM = node.getParam("LBMax", LATERAL_BOUNDARY_MAX);
+  bool ll = node.getParam("LL", LATERAL_LOOKAHEAD);
+  bool bd = node.getParam("BD", BACK_DISTANCE);
+  bool e = node.getParam("E", EXTRA_LOOKAHEAD);
+  bool grd = node.getParam("GRD", GOAL_RECOMPUTE_DISTANCE);
+  bool p = node.getParam("CP", CONTROL_GAIN_P);
+  bool clq = node.getParam("CLQ", CHANGE_LANE_Q);
+  
+  return (lbm && lbM && ll && bd && e && grd && p && clq); 
 }
 
 void generateGoal()

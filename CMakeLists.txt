@@ -126,8 +126,8 @@ add_executable(movement src/movement.cpp)
 target_link_libraries(movement ${catkin_LIBRARIES})
 add_executable(dynamics src/dynamics_dataExtraction.cpp)
 target_link_libraries(dynamics ${catkin_LIBRARIES})
-add_executable(param_tuner src/param_tuner.cpp)
-target_link_libraries(param_tuner ${catkin_LIBRARIES})
+#add_executable(param_tuner src/param_tuner.cpp)
+#target_link_libraries(param_tuner ${catkin_LIBRARIES})
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/detect_avoid.cpp
@@ -137,7 +137,7 @@ target_link_libraries(param_tuner ${catkin_LIBRARIES})
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
 add_dependencies(laser_clust ${${PROJECT_NAME}_EXPORTED_TARGETS})
-add_dependencies(avoid_fms ${${PROJECT_NAME}_EXPORTED_TARGETS})
+add_dependencies(movement ${${PROJECT_NAME}_EXPORTED_TARGETS})
 add_dependencies(dynamics ${${PROJECT_NAME}_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
