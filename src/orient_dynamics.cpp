@@ -4,7 +4,7 @@
 #include "std_msgs/Float32.h"
 #include "std_msgs/Float32MultiArray.h"
 #include "nav_msgs/Odometry.h"
-
+#include "detect_avoid/fullDatastruct.h"
 using namespace std;
 
 
@@ -13,31 +13,34 @@ const float CHANGE_LANE_Q = 35*(M_PI/180);
 const unsigned P = 150;
 const unsigned int FREC = 10;
 
-std_msgs::Float32MultiArray q_data;
+detect_avoid::fullDatastruct q_data;
 
 void cb_getYawData(const std_msgs::Float32::ConstPtr& yaw);
+void cb_getSpdData(const nav_msgs::Odometry::ConstPtr& odom);
 std_msgs::UInt8 computeControlCmd();
 float generateInput(double t0);
 
-bool close_loop = false;
+bool close_loop = true;
 bool got_yaw = false;
 float offset;
 
 float q;
 float qr;
+float spd;
 
 int main(int argc, char **argv)
 {
   ros::init(argc,argv,"dynamics");
   ros::NodeHandle n;
   ros::Subscriber yaw_sub = n.subscribe("yaw",1000, cb_getYawData);
+  ros::Subscriber v_sub = n.subscribe("odom",1000, cb_getSpdData);
   ros::Publisher v_pub = n.advertise<std_msgs::Int16>("manual_control/speed",1000);
   ros::Publisher w_pub = n.advertise<std_msgs::UInt8>("steering",1000);
-  ros::Publisher data_pub = n.advertise<std_msgs::Float32MultiArray>("dataExtraction/behaviour",1000);
+  ros::Publisher data_pub = n.advertise<detect_avoid::fullDatastruct>("dataExtraction",1000);
 
   ros::Rate loop_rate(FREC);
   
-  SPEED.data = 100;
+  SPEED.data = 862;
   
   while(!got_yaw)
   {
@@ -62,14 +65,15 @@ int main(int argc, char **argv)
   v_pub.publish(SPEED);
   while (ros::ok())
   {
-
-    q_data.data.clear();
     ros::spinOnce();
     qr = generateInput(start_time);
     std_msgs::UInt8 action = computeControlCmd();
     
-    q_data.data.push_back(qr);
-    q_data.data.push_back(q);
+    q_data.q = q;
+    q_data.qr = qr;
+    q_data.w = action.data;
+    q_data.v = SPEED.data;
+    q_data.vel = spd;
     
     w_pub.publish(action);
     data_pub.publish(q_data);
@@ -87,10 +91,15 @@ void cb_getYawData(const std_msgs::Float32::ConstPtr& yaw)
   q = yaw->data;
 }
 
+void cb_getSpdData(const nav_msgs::Odometry::ConstPtr& odom)
+{
+  spd = odom->twist.twist.linear.x;
+}
+
 float generateInput(double t0)
 {
   double elapsed = (ros::Time::now().toSec() - t0);
-  if(elapsed < 5.0)
+  if(elapsed < 1.0)
   {
     ROS_INFO("PRIMERA PARTE");
     return offset;

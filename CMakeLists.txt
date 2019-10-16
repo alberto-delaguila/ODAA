@@ -52,6 +52,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(DIRECTORY msg
     FILES
     ObstacleList.msg
+    fullDatastruct.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -124,8 +125,10 @@ add_executable(laser_clust src/laser_clustering.cpp)
 target_link_libraries(laser_clust ${catkin_LIBRARIES})
 add_executable(movement src/movement.cpp)
 target_link_libraries(movement ${catkin_LIBRARIES})
-add_executable(dynamics src/dynamics_dataExtraction.cpp)
-target_link_libraries(dynamics ${catkin_LIBRARIES})
+add_executable(orient_dynamics src/orient_dynamics.cpp)
+target_link_libraries(orient_dynamics ${catkin_LIBRARIES})
+add_executable(speed_dynamics src/speed_dynamics.cpp)
+target_link_libraries(speed_dynamics ${catkin_LIBRARIES})
 add_executable(param_tuner src/param_tuner.cpp)
 target_link_libraries(param_tuner ${catkin_LIBRARIES})
 ## Declare a C++ library
@@ -137,9 +140,10 @@ target_link_libraries(param_tuner ${catkin_LIBRARIES})
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
 add_dependencies(laser_clust ${${PROJECT_NAME}_EXPORTED_TARGETS})
-add_dependencies(avoid_fms ${${PROJECT_NAME}_EXPORTED_TARGETS})
-add_dependencies(dynamics ${${PROJECT_NAME}_EXPORTED_TARGETS})
-
+add_dependencies(movement ${${PROJECT_NAME}_EXPORTED_TARGETS})
+add_dependencies(orient_dynamics ${${PROJECT_NAME}_EXPORTED_TARGETS})
+add_dependencies(speed_dynamics ${${PROJECT_NAME}_EXPORTED_TARGETS})
+add_dependencies(param_tuner ${${PROJECT_NAME}_EXPORTED_TARGETS})
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide

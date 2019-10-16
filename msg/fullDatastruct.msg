@@ -1,0 +1,13 @@
+float64 x
+float64 y
+float32 qr
+float32 velr
+float32 q
+float32 vel
+uint8 w
+int16 v
+bool front
+bool left
+bool right
+bool inLeftLane
+bool changingLane
