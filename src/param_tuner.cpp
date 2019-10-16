@@ -45,21 +45,22 @@ void cb_getSpeed(const nav_msgs::Odometry::ConstPtr& spd)
 
 void tuneParams(ros::NodeHandle node)
 {
-  double t_est = 2;
+  double t_est = 1.5;
   
   double LATERAL_BOUNDARY_MIN = 0.1; 
-  double LATERAL_BOUNDARY_MAX = 0.5;
-  double GOAL_RECOMPUTE_DISTANCE = 1.5;
+  double LATERAL_BOUNDARY_MAX = 0.7;
+  double GOAL_RECOMPUTE_DISTANCE = 0.6;
   
-  double CHANGE_LANE_Q = 25*(M_PI/180);
+  double CHANGE_LANE_Q = (-5.45*speed+36.63)*(M_PI/180);
     
-  double SECURE_DISTANCE = max(0.4, t_est * speed);
-  double LATERAL_LOOKAHEAD = max(1.0, 2.5 * t_est * speed);
+  double SECURE_DISTANCE = min(max(1.0, t_est * speed),5.0);
+  double LATERAL_LOOKAHEAD = max(1.5, 2.5 * t_est * speed);
   double EXTRA_LOOKAHEAD = 0.25*LATERAL_LOOKAHEAD;
-  double BACK_DISTANCE = max(0.3, 0.25 * t_est * speed);
-  ROS_INFO("[INFO]param_tuner/tuneParams -> SD=%.1f, LL=%.1f, E=%.1f, BD=%.1f", SECURE_DISTANCE, LATERAL_LOOKAHEAD, EXTRA_LOOKAHEAD, BACK_DISTANCE);
-  ROS_INFO("[INFO]param_tuner/tuneParams -> LBm=%.1f, LBM=%.1f, GRD=%.1f", LATERAL_BOUNDARY_MAX, LATERAL_BOUNDARY_MIN, GOAL_RECOMPUTE_DISTANCE);
-
+  double BACK_DISTANCE = min(max(0.3, 0.1 * t_est * speed),0.8);
+  ROS_INFO("[INFO]param_tuner/tuneParams -> SD=%.2f, LL=%.2f, EX=%.2f, BD=%.2f", SECURE_DISTANCE, LATERAL_LOOKAHEAD, EXTRA_LOOKAHEAD, BACK_DISTANCE);
+  ROS_INFO("[INFO]param_tuner/tuneParams -> LBm=%.2f, LBM=%.2f, GRD=%.1f", LATERAL_BOUNDARY_MAX, LATERAL_BOUNDARY_MIN, GOAL_RECOMPUTE_DISTANCE);
+  ROS_INFO("[INFO]param_tuner/tuneParams -> CLQ=%.3f", CHANGE_LANE_Q);
+  
   node.setParam("/LBMin", LATERAL_BOUNDARY_MIN);
   node.setParam("/SD", SECURE_DISTANCE);
   node.setParam("/LBMax", LATERAL_BOUNDARY_MAX);

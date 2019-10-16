@@ -52,10 +52,10 @@ double EXTRA_LOOKAHEAD;
 double GOAL_RECOMPUTE_DISTANCE;
 double CHANGE_LANE_Q;
 
-float SPEED = 1;
-double SPEED_GAIN_I = 500;
+float SPEED = 1.6;
+double SPEED_GAIN_I = 250;
 double ORIENTATION_GAIN_P = 150.0;
-double ORIENTATION_ERROR = 1*(M_PI/180);
+double ORIENTATION_ERROR = 1.5*(M_PI/180);
 const unsigned int FREC = 10;
 
 //----GLOBAL VARIABLES---------------
@@ -75,8 +75,6 @@ struct carState_t{
   float y;
   float q;
   float vel;
-  int pose_rate_counter;
-  int yaw_rate_counter;
   
   float c_x;
   float c_y;
@@ -214,17 +212,9 @@ void cb_getOdometryData(const nav_msgs::Odometry::ConstPtr& pose)
   /*
    * This callback function retrieves position data from the pose topic
    */
-  if(car_state.pose_rate_counter == 10)
-  {
     car_state.x=pose->pose.pose.position.x;
     car_state.y=pose->pose.pose.position.y;
     car_state.vel=pose->twist.twist.linear.x;
-    car_state.pose_rate_counter = 0;
-  }
-  else
-  {
-    car_state.pose_rate_counter++;
-  }
 }
 
 void cb_getYawData(const std_msgs::Float32::ConstPtr& yaw)
@@ -233,16 +223,8 @@ void cb_getYawData(const std_msgs::Float32::ConstPtr& yaw)
    * This callback function retrieves orientation data from the yaw topic.
    * Also, sets the "got_pose" flag, as orientation is compulsory for navigation
    */
-  if(car_state.pose_rate_counter == 10)
-  {
     car_state.got_pose = true;
     car_state.q = yaw->data;
-    car_state.yaw_rate_counter = 0;
-  }
-  else
-  {
-    car_state.yaw_rate_counter++;
-  }
 }
 
 bool getClassificationParams(ros::NodeHandle node)
@@ -269,43 +251,43 @@ void generateGoal()
    * -Then, if the previous goal has been reached, uses both occupancy information 
    * and internal state to change the value of the reference, speed and other state values. This step is called generation
    */
-  
-  //Interpretation
-  car_state.front = true;
-  car_state.left = true;
-  car_state.right = true;
-  
-  if(!car_state.changingLane && abs(ROAD_ORIENTATION - car_state.q) < ORIENTATION_ERROR)
-  { 
-    for (int i=0; i < obstacles.size(); i++)
-    {
-      if(obstacles[i].y < -LATERAL_BOUNDARY_MIN && obstacles[i].y > -LATERAL_BOUNDARY_MAX && obstacles[i].x < LATERAL_LOOKAHEAD && obstacles[i].x > -BACK_DISTANCE)
+  if(!car_state.changingLane)
+  {
+    //Interpretation
+    car_state.front = true;
+    car_state.left = true;
+    car_state.right = true;
+    
+    if(abs(ROAD_ORIENTATION - car_state.q) < ORIENTATION_ERROR)
+    { 
+      for (int i=0; i < obstacles.size(); i++)
       {
-	car_state.right = false;
-	ROS_INFO("[INFO]avoid/generateGoal -> OBSTACLE %d [%.3f,%.3f] AT YOUR RIGHT",i,obstacles[i].x,obstacles[i].y);
-      }
-      else if(obstacles[i].y > LATERAL_BOUNDARY_MIN && obstacles[i].y < LATERAL_BOUNDARY_MAX && obstacles[i].x < (LATERAL_LOOKAHEAD + EXTRA_LOOKAHEAD) && obstacles[i].x > -BACK_DISTANCE)
-      {
-	car_state.left = false;
-	ROS_INFO("[INFO]avoid/generateGoal -> OBSTACLE %d [%.3f,%.3f] AT YOUR LEFT",i,obstacles[i].x,obstacles[i].y);
-      }
-      else if(obstacles[i].y > -LATERAL_BOUNDARY_MIN && obstacles[i].y < LATERAL_BOUNDARY_MIN && obstacles[i].x < SECURE_DISTANCE && obstacles[i].x > 0.01)
-      {
-	car_state.front = false;
-	ROS_INFO("[INFO]avoid/generateGoal -> OBSTACLE %d [%.3f,%.3f] IN FRONT OF YOU",i,obstacles[i].x,obstacles[i].y);
+	if(obstacles[i].y < -LATERAL_BOUNDARY_MIN && obstacles[i].y > -LATERAL_BOUNDARY_MAX && obstacles[i].x < LATERAL_LOOKAHEAD && obstacles[i].x > -BACK_DISTANCE)
+	{
+	  car_state.right = false;
+	  ROS_INFO("[INFO]avoid/generateGoal -> OBSTACLE %d [%.3f,%.3f] AT YOUR RIGHT",i,obstacles[i].x,obstacles[i].y);
+	}
+	else if(obstacles[i].y > LATERAL_BOUNDARY_MIN && obstacles[i].y < LATERAL_BOUNDARY_MAX && obstacles[i].x < (LATERAL_LOOKAHEAD + EXTRA_LOOKAHEAD) && obstacles[i].x > -BACK_DISTANCE)
+	{
+	  car_state.left = false;
+	  ROS_INFO("[INFO]avoid/generateGoal -> OBSTACLE %d [%.3f,%.3f] AT YOUR LEFT",i,obstacles[i].x,obstacles[i].y);
+	}
+	else if(obstacles[i].y > -LATERAL_BOUNDARY_MIN && obstacles[i].y < LATERAL_BOUNDARY_MIN && obstacles[i].x < SECURE_DISTANCE && obstacles[i].x > 0.01)
+	{
+	  car_state.front = false;
+	  ROS_INFO("[INFO]avoid/generateGoal -> OBSTACLE %d [%.3f,%.3f] IN FRONT OF YOU",i,obstacles[i].x,obstacles[i].y);
+	}
       }
     }
+    else
+    {
+      car_state.right = false;
+      car_state.left = false;
+      ROS_INFO("[INFO]avoid/generateGoal -> ORIENTATION IN LANE RESTRICTION");
+    }
+    ROS_INFO("[INFO]avoid/generateGoal -> STATUS: F:%d, L:%d, R:%d, IN_L:%d, CHA:%d, GS:%d, O:%d",!car_state.front,!car_state.left,!car_state.right,car_state.inLeftLane,car_state.changingLane, car_state.goal_set, abs(ROAD_ORIENTATION - car_state.q)<ORIENTATION_ERROR);
   }
-  else if(abs(ROAD_ORIENTATION - car_state.q) > ORIENTATION_ERROR)
-  {
-    car_state.right = false;
-    car_state.left = false;
-    ROS_INFO("[INFO]avoid/generateGoal -> ORIENTATION IN LANE RESTRICTION");
-  }
-  ROS_INFO("[INFO]avoid/generateGoal -> STATUS: F:%d, L:%d, R:%d, IN_L:%d, CHA:%d, GS:%d, O:%.d",!car_state.front,!car_state.left,!car_state.right,car_state.inLeftLane,car_state.changingLane, car_state.goal_set,abs(ROAD_ORIENTATION - car_state.q)<ORIENTATION_ERROR);
-  
-  //Packing data for extraction
-  
+
    //Generation  
   if(!car_state.goal_set)
   {
@@ -313,7 +295,7 @@ void generateGoal()
     {
       car_state.vel_r = SPEED;
       car_state.q_r = ROAD_ORIENTATION;
-      ROS_INFO("[INFO]avoid/generateGoal -> FOLLOW ROAD");
+      ROS_INFO("[INFO]avoid/generateGoal/generation -> FOLLOW ROAD");
     }
     else if(!car_state.inLeftLane && !car_state.front && car_state.left)
     {
@@ -323,22 +305,22 @@ void generateGoal()
       car_state.c_x = car_state.x;
       car_state.c_y = car_state.y;
       car_state.changingLane = true;
-      ROS_INFO("[INFO]avoid/generateGoal -> SWITCH TO LEFT LANE");
+      ROS_INFO("[INFO]avoid/generateGoal/generation -> SWITCH TO LEFT LANE");
     }
     else if(car_state.inLeftLane && car_state.right)
     {
       car_state.vel_r = 1.2*SPEED;
-      car_state.q_r = ROAD_ORIENTATION + CHANGE_LANE_Q;
+      car_state.q_r = 0.95*(ROAD_ORIENTATION + CHANGE_LANE_Q);
       car_state.inLeftLane = false;
       car_state.c_x = car_state.x;
       car_state.c_y = car_state.y;
       car_state.changingLane = true;
-      ROS_INFO("[INFO]avoid/generateGoal -> SWITCH TO RIGHT LANE");
+      ROS_INFO("[INFO]avoid/generateGoal/generation -> SWITCH TO RIGHT LANE");
     }
     else if((car_state.inLeftLane && !car_state.front && !car_state.right)||(!car_state.inLeftLane && !car_state.front && !car_state.left)) 
     {
       car_state.vel_r = 0;
-      ROS_INFO("[INFO]avoid/generateGoal -> STOP");
+      ROS_INFO("[INFO]avoid/generateGoal/generation -> STOP");
     }
         
     car_state.goal_set = true;
@@ -387,5 +369,5 @@ void speedControl()
 {
   car_state.speed_state += SPEED_GAIN_I*(car_state.vel_r - car_state.vel);
   car_state.v.data = car_state.speed_state;
-  ROS_INFO("[DEBUG]avoid/speedControl -> V_R=%.3f, V=%.3f, A=%d", car_state.vel_r, car_state.vel, car_state.v.data);
+  ROS_INFO("[DEBUG]avoid/speedControl -> VR=%.3f, V=%.3f, A=%d", car_state.vel_r, car_state.vel, car_state.v.data);
 }
