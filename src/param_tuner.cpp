@@ -53,8 +53,8 @@ void tuneParams(ros::NodeHandle node)
   
   double CHANGE_LANE_Q = (-5.45*speed+36.63)*(M_PI/180);
     
-  double SECURE_DISTANCE = min(max(1.0, t_est * speed),5.0);
-  double LATERAL_LOOKAHEAD = max(1.5, 2.5 * t_est * speed);
+  double SECURE_DISTANCE = max(1.0, t_est * speed);
+  double LATERAL_LOOKAHEAD = max(1.5, 2.0 * t_est * speed);
   double EXTRA_LOOKAHEAD = 0.25*LATERAL_LOOKAHEAD;
   double BACK_DISTANCE = min(max(0.3, 0.1 * t_est * speed),0.8);
   ROS_INFO("[INFO]param_tuner/tuneParams -> SD=%.2f, LL=%.2f, EX=%.2f, BD=%.2f", SECURE_DISTANCE, LATERAL_LOOKAHEAD, EXTRA_LOOKAHEAD, BACK_DISTANCE);
