@@ -51,7 +51,7 @@ void tuneParams(ros::NodeHandle node)
   double LATERAL_BOUNDARY_MAX = 0.7;
   double GOAL_RECOMPUTE_DISTANCE = 0.6;
   
-  double CHANGE_LANE_Q = (-5.45*speed+36.63)*(M_PI/180);
+  double CHANGE_LANE_Q = (-5.45*speed+38.0)*(M_PI/180);
     
   double SECURE_DISTANCE = max(1.0, t_est * speed);
   double LATERAL_LOOKAHEAD = max(1.5, 2.0 * t_est * speed);
