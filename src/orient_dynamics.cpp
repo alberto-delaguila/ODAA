@@ -10,8 +10,8 @@ using namespace std;
 
 std_msgs::Int16 SPEED;
 const float CHANGE_LANE_Q = 35*(M_PI/180);
-const unsigned P = 150;
-const unsigned int FREC = 10;
+const unsigned P = 500;
+const unsigned int FREC = 100;
 
 detect_avoid::fullDatastruct q_data;
 
@@ -40,7 +40,7 @@ int main(int argc, char **argv)
 
   ros::Rate loop_rate(FREC);
   
-  SPEED.data = 862;
+  SPEED.data = 380;
   
   while(!got_yaw)
   {
@@ -62,13 +62,13 @@ int main(int argc, char **argv)
   
    
   double start_time = ros::Time::now().toSec();
-  v_pub.publish(SPEED);
+
   while (ros::ok())
   {
     ros::spinOnce();
     qr = generateInput(start_time);
     std_msgs::UInt8 action = computeControlCmd();
-    
+    v_pub.publish(SPEED);
     q_data.q = q;
     q_data.qr = qr;
     q_data.w = action.data;
@@ -77,7 +77,6 @@ int main(int argc, char **argv)
     
     w_pub.publish(action);
     data_pub.publish(q_data);
-
     
     ROS_INFO("DATA PUBLISHED: Q_R %.2f, Q %.2f, W %d",qr,q,action);
     loop_rate.sleep();

@@ -7,8 +7,8 @@
 using namespace std;
 
 const float INC = 1;
-const unsigned I = 500;
-const unsigned int FREC = 10;
+const unsigned I = 200;
+const unsigned int FREC = 100;
 
 detect_avoid::fullDatastruct v_data;
 
@@ -25,7 +25,7 @@ std_msgs::Int16 vel;
 
 int main(int argc, char **argv)
 {
-  ros::init(argc,argv,"dynamics");
+  ros::init(argc,argv,"spd_dynamics");
   ros::NodeHandle n;
   ros::Subscriber odom_sub = n.subscribe("odom",1000, cb_getSpdData);
   ros::Publisher v_pub = n.advertise<std_msgs::Int16>("manual_control/speed",1000);

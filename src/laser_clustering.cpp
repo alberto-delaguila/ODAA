@@ -29,7 +29,7 @@ using namespace std;
  */
 const float DIFFERENCE_TRESHOLD = 1.0;
 const float LASER_RANGE = 8;
-const int FREC = 10;
+const int FREC = 100;
 
 //----DATA STRUCTURES AND TYPEDEFS----------------
 /*

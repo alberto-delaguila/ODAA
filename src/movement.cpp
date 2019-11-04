@@ -52,11 +52,11 @@ double EXTRA_LOOKAHEAD;
 double GOAL_RECOMPUTE_DISTANCE;
 double CHANGE_LANE_Q;
 
-float SPEED = 1.6;
-double SPEED_GAIN_I = 250;
-double ORIENTATION_GAIN_P = 150.0;
-double ORIENTATION_ERROR = 1.5*(M_PI/180);
-const unsigned int FREC = 10;
+float SPEED = 1.66;
+double SPEED_GAIN_I = 20.0;
+double ORIENTATION_GAIN_P = 100.0;
+double ORIENTATION_ERROR = 3*(M_PI/180);
+const unsigned int FREC = 100;
 
 //----GLOBAL VARIABLES---------------
 /*
@@ -84,16 +84,15 @@ struct carState_t{
  
   float speed_state;
   
-  bool goal_set;
-  bool got_pose;
-  bool got_road_q;
+  float goal_set;
+  float got_pose;
+  float got_road_q;
   
   bool front;
   bool right;
   bool left;
   bool inLeftLane;
   bool changingLane;
-  
   
   std_msgs::Int16 v;
   std_msgs::UInt8 w;
@@ -140,11 +139,11 @@ int main(int argc, char **argv)
   ros::Publisher w_pub = n.advertise<std_msgs::UInt8>("steering",1000);
   
   //DATA EXTRACTION PUBLISHERS
-  ros::Publisher exp_pub = n.advertise<detect_avoid::fullDatastruct>("extractData",1000);
+  ros::Publisher exp_pub = n.advertise<detect_avoid::fullDatastruct>("dataExtraction",1000);
   
   ros::Rate loop_rate(FREC);
   
-  ROS_INFO("[INFO]avoid -> NODE 'AVOID' STARTED");
+  ROS_INFO("[INFO]movement -> NODE 'MOVEMENT' STARTED");
   
 
   while (ros::ok())
@@ -161,30 +160,31 @@ int main(int argc, char **argv)
       speedControl();
       computeControlCmd();
       
-      
-      ROS_INFO("[INFO]avoid -> PUBLISHING DATA: v: %d w:%d",car_state.v.data, car_state.w.data);
-      v_pub.publish(car_state.v);
-      w_pub.publish(car_state.w); 
-      
-      
+      data.vel = car_state.vel;
+      data.q = car_state.q;
       data.changingLane = car_state.changingLane;
       data.inLeftLane = car_state.inLeftLane;
       data.front = car_state.front;
-      data.right = car_state.right;
       data.left = car_state.left;
-      data.q = car_state.q;
-      data.qr = car_state.q_r;
-      data.vel = car_state.vel;
+      data.right = car_state.right;
       data.velr = car_state.vel_r;
-      data.x = car_state.x;
-      data.y = car_state.y;
+      data.qr = car_state.q_r;
       data.w = car_state.w.data;
       data.v = car_state.v.data;
+      data.x = car_state.x;
+      data.y = car_state.y;
+      exp_pub.publish(data);      
       
-      exp_pub.publish(data);
+      ROS_INFO("[INFO]movement -> PUBLISHING DATA: v: %d w:%d",car_state.v.data, car_state.w.data);
+      v_pub.publish(car_state.v);
+      w_pub.publish(car_state.w);  
+      
+      ROS_INFO("[DEBUG]movement -> EXTRACTION DATA: V[%.3f, %.3f, %d], Q[%.3f, %.3f, %d], CL/ILL/F/L/R[%d,%d,%d,%d,%d]",data.velr,data.vel,data.v,
+															  data.qr,data.q,data.w,
+									      data.changingLane,data.inLeftLane,data.front,data.left,data.right);
     }
     
-    if(!loop_rate.sleep()) ROS_INFO("[WARN]avoid -> TIME CONDITION OF %d HZ NOT MET",FREC);
+    if(!loop_rate.sleep()) ROS_INFO("[WARN]movement -> TIME CONDITION OF %d HZ NOT MET",FREC);
   }
   return 0;
 }
@@ -197,13 +197,12 @@ void cb_processObstacleData(const detect_avoid::ObstacleList::ConstPtr& obst_lis
    */
   obstPos_t temp_obst;
   obstacles.clear();
-  ROS_INFO("[DEBUG]avoid/cb_processObstacleData -> SCAN ID %d",obst_list->id);
+  ROS_INFO("[DEBUG]movement/cb_processObstacleData -> SCAN ID %d",obst_list->id);
   for (int i=0; i < obst_list->count; i++)
   {
     temp_obst.x = obst_list->d[i]*cos(obst_list->a[i]);
     temp_obst.y = obst_list->d[i]*sin(obst_list->a[i]);
     obstacles.push_back(temp_obst);
-    ROS_INFO("[DEBUG]avoid/cb_processObstacleData -> OBST %d AT L[%.3f, %.3f]",i,temp_obst.x,temp_obst.y);
   }
 }
 
@@ -215,6 +214,8 @@ void cb_getOdometryData(const nav_msgs::Odometry::ConstPtr& pose)
     car_state.x=pose->pose.pose.position.x;
     car_state.y=pose->pose.pose.position.y;
     car_state.vel=pose->twist.twist.linear.x;
+
+    
 }
 
 void cb_getYawData(const std_msgs::Float32::ConstPtr& yaw)
@@ -225,11 +226,11 @@ void cb_getYawData(const std_msgs::Float32::ConstPtr& yaw)
    */
     car_state.got_pose = true;
     car_state.q = yaw->data;
+    
 }
 
 bool getClassificationParams(ros::NodeHandle node)
 {  
-
   bool lbm = node.getParam("/LBMin", LATERAL_BOUNDARY_MIN);
   bool lbM = node.getParam("/LBMax", LATERAL_BOUNDARY_MAX);
   bool ll = node.getParam("/LL", LATERAL_LOOKAHEAD);
@@ -238,7 +239,7 @@ bool getClassificationParams(ros::NodeHandle node)
   bool e = node.getParam("/E", EXTRA_LOOKAHEAD);
   bool grd = node.getParam("/GRD", GOAL_RECOMPUTE_DISTANCE);
   bool clq = node.getParam("/CLQ", CHANGE_LANE_Q);
-  ROS_INFO("[DEBUG]avoid/getClassificationParams -> RETRIEVING OBSTACLE CLASSIFICATION PARAMETERS: %d",lbm && lbM && ll && bd && e && grd && clq && sd);
+  ROS_INFO("[DEBUG]movement/getClassificationParams -> RETRIEVING OBSTACLE CLASSIFICATION PARAMETERS: %d",lbm && lbM && ll && bd && e && grd && clq && sd);
   return (lbm && lbM && ll && bd && e && grd && clq && sd); 
 }
 
@@ -257,25 +258,24 @@ void generateGoal()
     car_state.front = true;
     car_state.left = true;
     car_state.right = true;
-    
     if(abs(ROAD_ORIENTATION - car_state.q) < ORIENTATION_ERROR)
-    { 
+    {
       for (int i=0; i < obstacles.size(); i++)
       {
 	if(obstacles[i].y < -LATERAL_BOUNDARY_MIN && obstacles[i].y > -LATERAL_BOUNDARY_MAX && obstacles[i].x < LATERAL_LOOKAHEAD && obstacles[i].x > -BACK_DISTANCE)
 	{
 	  car_state.right = false;
-	  ROS_INFO("[INFO]avoid/generateGoal -> OBSTACLE %d [%.3f,%.3f] AT YOUR RIGHT",i,obstacles[i].x,obstacles[i].y);
+	  ROS_INFO("[INFO]movement/generateGoal -> OBSTACLE %d [%.3f,%.3f] AT YOUR RIGHT",i,obstacles[i].x,obstacles[i].y);
 	}
 	else if(obstacles[i].y > LATERAL_BOUNDARY_MIN && obstacles[i].y < LATERAL_BOUNDARY_MAX && obstacles[i].x < (LATERAL_LOOKAHEAD + EXTRA_LOOKAHEAD) && obstacles[i].x > -BACK_DISTANCE)
 	{
 	  car_state.left = false;
-	  ROS_INFO("[INFO]avoid/generateGoal -> OBSTACLE %d [%.3f,%.3f] AT YOUR LEFT",i,obstacles[i].x,obstacles[i].y);
+	  ROS_INFO("[INFO]movement/generateGoal -> OBSTACLE %d [%.3f,%.3f] AT YOUR LEFT",i,obstacles[i].x,obstacles[i].y);
 	}
 	else if(obstacles[i].y > -LATERAL_BOUNDARY_MIN && obstacles[i].y < LATERAL_BOUNDARY_MIN && obstacles[i].x < SECURE_DISTANCE && obstacles[i].x > 0.01)
 	{
 	  car_state.front = false;
-	  ROS_INFO("[INFO]avoid/generateGoal -> OBSTACLE %d [%.3f,%.3f] IN FRONT OF YOU",i,obstacles[i].x,obstacles[i].y);
+	  ROS_INFO("[INFO]movement/generateGoal -> OBSTACLE %d [%.3f,%.3f] IN FRONT OF YOU",i,obstacles[i].x,obstacles[i].y);
 	}
       }
     }
@@ -283,10 +283,10 @@ void generateGoal()
     {
       car_state.right = false;
       car_state.left = false;
-      ROS_INFO("[INFO]avoid/generateGoal -> ORIENTATION IN LANE RESTRICTION");
     }
-    ROS_INFO("[INFO]avoid/generateGoal -> STATUS: F:%d, L:%d, R:%d, IN_L:%d, CHA:%d, GS:%d, O:%d",!car_state.front,!car_state.left,!car_state.right,car_state.inLeftLane,car_state.changingLane, car_state.goal_set, abs(ROAD_ORIENTATION - car_state.q)<ORIENTATION_ERROR);
-  }
+   }   
+   ROS_INFO("[INFO]movement/generateGoal -> STATUS: GS:%d, O:%d", car_state.goal_set, (abs(ROAD_ORIENTATION - car_state.q) < ORIENTATION_ERROR));
+
 
    //Generation  
   if(!car_state.goal_set)
@@ -295,7 +295,7 @@ void generateGoal()
     {
       car_state.vel_r = SPEED;
       car_state.q_r = ROAD_ORIENTATION;
-      ROS_INFO("[INFO]avoid/generateGoal/generation -> FOLLOW ROAD");
+      ROS_INFO("[INFO]movement/generateGoal -> FOLLOW ROAD");
     }
     else if(!car_state.inLeftLane && !car_state.front && car_state.left)
     {
@@ -305,7 +305,7 @@ void generateGoal()
       car_state.c_x = car_state.x;
       car_state.c_y = car_state.y;
       car_state.changingLane = true;
-      ROS_INFO("[INFO]avoid/generateGoal/generation -> SWITCH TO LEFT LANE");
+      ROS_INFO("[INFO]avoid/generateGoal -> SWITCH TO LEFT LANE");
     }
     else if(car_state.inLeftLane && car_state.right)
     {
@@ -315,16 +315,16 @@ void generateGoal()
       car_state.c_x = car_state.x;
       car_state.c_y = car_state.y;
       car_state.changingLane = true;
-      ROS_INFO("[INFO]avoid/generateGoal/generation -> SWITCH TO RIGHT LANE");
+      ROS_INFO("[INFO]avoid/generateGoal -> SWITCH TO RIGHT LANE");
     }
     else if((car_state.inLeftLane && !car_state.front && !car_state.right)||(!car_state.inLeftLane && !car_state.front && !car_state.left)) 
     {
       car_state.vel_r = 0;
-      ROS_INFO("[INFO]avoid/generateGoal/generation -> STOP");
+      ROS_INFO("[INFO]avoid/generateGoal -> STOP");
     }
         
     car_state.goal_set = true;
-  }
+  } 
 }
 
 void computeControlCmd()
@@ -362,12 +362,12 @@ void computeControlCmd()
   
   int w = (int)(ORIENTATION_GAIN_P * err) + 90;
   car_state.w.data = (uint)(min(max(0,w),255));
-  ROS_INFO("[DEBUG]avoid/computeControlCmd -> Q=%.3f, Q_R=%.3f, D=%.3f E=%f, A=%.3f",car_state.q, car_state.q_r, distance, err, ORIENTATION_GAIN_P * err);
+  ROS_INFO("[DEBUG]avoid/computeControlCmd -> Q=%.3f, Q_R=%.3f, D=%.3f E=%f, A=%d",car_state.q, car_state.q_r, distance, err, car_state.w.data);
 }
 
 void speedControl()
 {
   car_state.speed_state += SPEED_GAIN_I*(car_state.vel_r - car_state.vel);
-  car_state.v.data = car_state.speed_state;
+  car_state.v.data = (int)max(0, (int)car_state.speed_state);
   ROS_INFO("[DEBUG]avoid/speedControl -> VR=%.3f, V=%.3f, A=%d", car_state.vel_r, car_state.vel, car_state.v.data);
 }
