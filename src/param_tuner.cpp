@@ -10,7 +10,6 @@ void tuneParams(ros::NodeHandle node);
 void cb_getSpeed(const nav_msgs::Odometry::ConstPtr& spd);
 
 double speed;
-int counter;
 
 int main(int argc, char **argv)
 {
@@ -31,16 +30,8 @@ int main(int argc, char **argv)
 
 void cb_getSpeed(const nav_msgs::Odometry::ConstPtr& spd)
 {
-  if (counter == 10)
-  {
     speed = spd -> twist.twist.linear.x;
     ROS_INFO("[DEBUG]param_tuner/cb_getSpeed -> SPEED: %.3f", speed);
-    counter = 0;
-  }
-  else
-  {
-    counter++;
-  }
 }
 
 void tuneParams(ros::NodeHandle node)
